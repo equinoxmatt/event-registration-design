@@ -1,0 +1,266 @@
+openapi: 3.1.0
+
+info:
+  title: HDR Events API
+  description: Internal event registration management
+  version: 1.0.0
+
+servers:
+  - url: /api
+    description: Local
+
+tags:
+  - name: Events
+    description: CRUD for events
+  - name: Registrations
+    description: Increment and decrement registration counts
+
+paths:
+  /events:
+    get:
+      operationId: listEvents
+      summary: List all events with their registration counts
+      tags: [Events]
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EventCollection'
+
+    post:
+      operationId: createEvent
+      summary: Create an event
+      tags: [Events]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EventRequest'
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EventResource'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+
+  /events/{id}:
+    parameters:
+      - $ref: '#/components/parameters/EventId'
+
+    get:
+      operationId: getEvent
+      summary: Get a single event
+      tags: [Events]
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EventResource'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+    put:
+      operationId: updateEvent
+      summary: Replace an event
+      tags: [Events]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EventRequest'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EventResource'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+
+    delete:
+      operationId: deleteEvent
+      summary: Delete an event
+      tags: [Events]
+      responses:
+        '204':
+          description: No Content
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /events/{id}/register:
+    parameters:
+      - $ref: '#/components/parameters/EventId'
+
+    post:
+      operationId: registerForEvent
+      summary: Register for an event (increment count by 1)
+      tags: [Registrations]
+      responses:
+        '200':
+          description: Registered - returns the event with its updated count
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EventResource'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+
+    delete:
+      operationId: cancelRegistration
+      summary: Cancel a registration
+      tags: [Registrations]
+      responses:
+        '200':
+          description: Cancelled - returns the event with its updated count
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EventResource'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+
+components:
+  parameters:
+    EventId:
+      name: id
+      in: path
+      required: true
+      schema:
+        type: integer
+        minimum: 1
+      example: 1
+
+  schemas:
+
+    Event:
+      type: object
+      required: [id, name, date, registrations, created_at, updated_at]
+      properties:
+        id:
+          type: integer
+          readOnly: true
+          example: 1
+        name:
+          type: string
+          maxLength: 255
+          example: All-hands Meeting
+        date:
+          type: string
+          format: date
+          example: '2026-06-15'
+        registrations:
+          type: integer
+          minimum: 0
+          readOnly: true
+          example: 42
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+          example: '2026-05-23T09:00:00Z'
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+          example: '2026-05-23T09:00:00Z'
+
+    EventRequest:
+      type: object
+      required: [name, date]
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 255
+          example: Team Lunch
+        date:
+          type: string
+          format: date
+          example: '2026-06-20'
+
+    EventResource:
+      type: object
+      required: [data]
+      properties:
+        data:
+          $ref: '#/components/schemas/Event'
+
+    EventCollection:
+      type: object
+      required: [data]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/Event'
+
+    Error:
+      type: object
+      required: [message]
+      properties:
+        message:
+          type: string
+          example: No query results for model [Event] 1
+
+    ValidationError:
+      type: object
+      required: [message, errors]
+      properties:
+        message:
+          type: string
+          example: The name field is required.
+        errors:
+          type: object
+          additionalProperties:
+            type: array
+            items:
+              type: string
+          example:
+            name:
+              - The name field is required.
+            date:
+              - The date field must be a valid date.
+
+  responses:
+
+    NotFound:
+      description: Resource not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+
+    TooManyRequests:
+      description: Rate limit exceeded
+      headers:
+        Retry-After:
+          schema:
+            type: integer
+          description: Seconds to wait before retrying
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+
+    ValidationError:
+      description: Validation failed
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ValidationError'

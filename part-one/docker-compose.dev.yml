@@ -1,0 +1,17 @@
+services:
+  web:
+    build:
+      target: base
+    command: npm run dev -- --hostname 0.0.0.0
+    environment:
+      NEXT_TELEMETRY_DISABLED: "1"
+    volumes:
+      - ./web:/app
+      - /app/node_modules
+
+  api:
+    volumes:
+      - ./api:/var/www/html
+      - /var/www/html/vendor
+      - /var/www/html/bootstrap/cache
+      - /var/www/html/storage
